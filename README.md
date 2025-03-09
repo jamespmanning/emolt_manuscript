@@ -1,1 +1,1 @@
-This is the code JiM used in creating figures for eMOLT manuscript(s). The master manuscript is stored in the googledoc https://docs.google.com/document/d/1HujkwHigtDC1X4PbuHzIPGVUvYv6paPbJKAQRH40I5Q/edit?tab=t.0
+This is the code JiM used in creating figures for eMOLT manuscript(s) after he retired from NOAA. The master manuscript is stored in the googledoc https://docs.google.com/document/d/1HujkwHigtDC1X4PbuHzIPGVUvYv6paPbJKAQRH40I5Q/edit?tab=t.0
