@@ -26,7 +26,9 @@ import pytz
 
 ###### HARDCODES #########
 maxnumyr=2 # maximum number of years needed to include (ie don't bother otherwise)
+minnumdays=182
 lincol=['red','blue','green','black','yellow','cyan','magenta','gray']
+aveperiod='Decadal' # or Annual
 
 #depmean=[183,10,28,63,22,20,31]
 #sites=['JS02','BD01','MC02','JT04','AG01','BN01','WD01']
@@ -209,11 +211,10 @@ for j in range(len(sites)):
       if t>ts:
         if t<=te:
           te_temp=t #new max yearday
-      if te_temp-ts_temp>60: #if greater than 2 months include it
+      if te_temp-ts_temp>minnumdays: #if greater than so many days include it
         ts=ts_temp
         te=te_temp
-    #tso2=tso[tso.index.dayofyear>ts]
-    #tso3=tso2[tso2.index.dayofyear<te]
+
     tso2=tso[tso.index.to_series().apply(lambda x: x.dayofyear)>ts]
     tso3=tso2[tso2.index.to_series().apply(lambda x: x.dayofyear)<te]
     #tso3.index.tz=None
@@ -222,33 +223,64 @@ for j in range(len(sites)):
     tso_a=tso3['temp'].resample('A').mean()#.ohlc_dict()
     tso_ac=tso3['temp'].resample('A').count()
     tso_a=tso_a[tso_ac.values!=0]
+    
+    # here is where we get decadal averages
+    # Extract the decade from the datetime index
+    if aveperiod=='Decadal':
+        decade = tso_a.index.year // 10 * 10
+        decadal_average = tso_a.groupby(decade).mean()
+        #ax.plot(to_datetime(decadal_average.index,format=('%Y'))+td(days=365*5),decadal_average.values,color=lincol[j],linewidth=5,label=sites[j]+' dockside')
+        ax.plot(tso_a.index-td(days=182),tso_a.values,color=lincol[j],linewidth=1,label=sites[j]+' dockside')
+    else:
+        ax.plot(tso_a.index-td(days=182),tso_a.values,color=lincol[j],linewidth=3,label=sites[j]+' dockside')#+' '+chr(0x2191))# note the "182" making it mid-year point
+
     # do linear regression taking from https://www.geo.fu-berlin.de/en/v/soga-py/Advanced-statistics/time-series-analysis/Trends-and-seasonal-effects/Linear-trend-estimation/index.html
     t = np.arange(0, len(tso_a))
     z = np.polyfit(t, tso_a.values.flatten(), 1)
     p = np.poly1d(z)
     fitpts=p(t)
-    ax.plot(tso_a.index-td(days=182),tso_a.values,color=lincol[j],linewidth=3,label=sites[j])#+' '+chr(0x2191))# note the "182" making it mid-year point
     t=[tso_a.index[0]-td(days=182),tso_a.index[-1]-td(days=182)]
     y=[fitpts[0],fitpts[-1]]
     #ax.plot(tso_a.index-td(days=182),fitpts,'--',color=lincol[j],linewidth=6,label=sites[j]+' '+chr(0x2191)+'%0.2f' % z[0]+' degF/year')
+    
     if z[0]>0:
-        ax.plot(t,y,'--',color=lincol[j],linewidth=6,label=chr(0x2191)+'%0.2f' % z[0]+' degF/year')
+        ax.plot(t,y,':',color=lincol[j],linewidth=6,label=chr(0x2191)+'%0.2f' % z[0]+' degF/year')
     else:
-        ax.plot(t,y,'--',color=lincol[j],linewidth=6,label=chr(0x2193)+'%0.2f' % z[0]+' degF/year')
-ax.legend(loc='best',fontsize=14)# "2" for upper left
-plt.ylabel('Annual Mean Temperature (degF)',fontsize=18)
+        ax.plot(t,y,':',color=lincol[j],linewidth=6,label=chr(0x2193)+'%0.2f' % z[0]+' degF/year')
+       
+    if aveperiod=='Decadal':
+        for jj in np.unique(decade):
+            tso_a1=tso_a[(tso_a.index.year>=jj) & (tso_a.index.year<jj+10)]
+            t = np.arange(0, len(tso_a1))
+            z = np.polyfit(t, tso_a1.values.flatten(), 1)
+            p = np.poly1d(z)
+            fitpts=p(t)
+            t=[tso_a1.index[0]-td(days=182),tso_a1.index[-1]-td(days=182)]
+            y=[fitpts[0],fitpts[-1]]
+            ax.plot(t,y,':',color=lincol[j],linewidth=1)#,label='%0.2f' % z[0]+' degF/year')
+            timestamp_values = [ts.timestamp() for ts in t]
+            mean_timestamp_value = np.mean(timestamp_values)
+            meant=dt.fromtimestamp(mean_timestamp_value)
+            if j==0:
+                ax.text(meant,np.max(y)+3,'%0.2f' % z[0])
+            else:
+                ax.text(meant,np.min(y)-3,'%0.2f' % z[0])
+                
+    
+ax.legend(loc='best',fontsize=10)# "2" for upper left
+plt.ylabel('Annual Mean Temperature (degF)',fontsize=14)
 ax2=ax.twinx()
 ax2.set_ylabel('celsius',fontsize=14)
 #ax2.set_ylim((np.nanmin(tso_a['mean'].values)-32)/1.8,(np.nanmax(tso_a['mean'].values)+-32)/1.8)
 degFrange=ax.get_ylim()  
 ax2.set_ylim((degFrange[0]-32)/1.8,(degFrange[1]-32)/1.8)  
-ax2.set_xlabel('Year',fontsize=18)
+ax2.set_xlabel('Year',fontsize=16)
 if 'WHAQ' in sites:
     ax.xaxis.set_major_locator(dates.YearLocator(10))
 else:
     ax.xaxis.set_major_locator(dates.YearLocator(2)) 
 ax.xaxis.set_major_formatter(dates.DateFormatter('%Y'))  
-plt.ylabel('Annual Mean Temperature (degC)',fontsize=18)
+plt.ylabel('Annual Mean Temperature (degC)',fontsize=14)
 plt.xlabel('Year',fontsize=18)
 
 if depmin!=0:
@@ -257,4 +289,4 @@ if depmin!=0:
     #plt.title('eMOLT lobsterman, Jon Carter, off Bar Harbor in '+"%0.0f" % depmean[0] +' fathoms (~'+"%0.0f" % fth2m(depmean[0])+' meters)',fontsize=10)
 fig.autofmt_xdate()
 plt.show()
-plt.savefig('./output/'+sitelabel+'_annual.png')
+plt.savefig(sitelabel+'_annual.png')
